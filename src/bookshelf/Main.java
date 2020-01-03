@@ -10,8 +10,9 @@ public class Main {
 	static final int WIN_WIDTH = 1000; //must be multiple of 100 for grids to work
 	static final int WIN_HEIGHT = 600;
 	static final int FONT_SIZE = 50;
-	static int begin = 3;
-	static boolean dead = false;
+	public static final int portnum = 1024;
+	
+	public static boolean dead = false;
 
 	public static void main(String args[]) throws InterruptedException {
 		JFrame frame = new JFrame("Bookshelf");
@@ -29,23 +30,24 @@ public class Main {
 
 		frame.setVisible(true);
 
-		Thread.sleep(1000);
-		begin = 2;
-		frame.repaint();
-		Thread.sleep(1000);
-		begin = 1;
-		frame.repaint();
-		Thread.sleep(1000);
-		begin = 0;
-		frame.repaint();
 		while (true) {
 			long startTime = System.currentTimeMillis();
 			
-			Main.state.update();
+			if (GamePanel.start)
+			{
+				if (GameState.ishost)
+					state.serverpoll();
+				else
+					state.clientpoll();
+				state.update();
+			}
+			if (GamePanel.startnum > 0) //GamePanel.startnum == 0 && GamePanel.startnum > 0
+			{
+				frame.repaint();
+				Thread.sleep(1000);
+				GamePanel.startnum -= 1;
+			}
 			frame.repaint();
-			
-			if (dead)
-				break;
 
 			long elapsedTime = System.currentTimeMillis() - startTime;
 

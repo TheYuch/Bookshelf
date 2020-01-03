@@ -5,6 +5,14 @@ import java.awt.Rectangle;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.Point2D;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.io.PushbackInputStream;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Random;
 
@@ -17,30 +25,40 @@ public class GameState extends MouseAdapter {
 	static final int GRID_THICKNESS = 2;
 	static final int PLAYER_SIZE = Main.WIN_WIDTH / GRIDS_X - 10;
 	
-	public int score = 0;
+	public static int score = 0;
+	public static int oscore = 0; //opponent's score
 	
-	final int constantx = Main.WIN_WIDTH / GRIDS_X;
-	final int constanty = Main.WIN_HEIGHT / GRIDS_Y;
+	public final static int constantx = Main.WIN_WIDTH / GRIDS_X;
+	public final static int constanty = Main.WIN_HEIGHT / GRIDS_Y;
 
-	private Point2D.Double player;
+	private static Point2D.Double player;
 	private Point2D.Double prevplayer;
 	private Point2D.Double velocity;
 	private double ELASTICITY = 0.5;
 	public boolean grounded = false;
 	private ArrayList<Point> toremove;
 	
+	private static Point2D.Double opponent;
+	
+	
 	private boolean collidedx = false;
 	private boolean collidedy = false;
 	
 	//public boolean[][] obstacles;
-	public int[][] obstacles;
+	public static int[][] obstacles;
 	
 	//end point
-	public Point end;
+	public static Point end;
 	
 	private Point mousePos;
 	
-	Point relativepos; //for mouse position checking
+	//multiplayer networking stuff
+	public static boolean multiplayer = false;
+	public static boolean connected = false;
+	public static boolean ishost;
+	private PrintWriter out;
+	private BufferedReader in;
+	private PushbackInputStream pin;
 
 	public GameState() {
 		player = new Point2D.Double(Main.WIN_WIDTH / 2 - (PLAYER_SIZE / 2), 0);
@@ -58,10 +76,28 @@ public class GameState extends MouseAdapter {
 		end = new Point(rand.nextInt(GRIDS_X - 10) + 5, rand.nextInt(GRIDS_Y - 10) + 5);
 		mousePos = new Point(0, 0);
 		obstacles[end.x][end.y] = 2; 
-		relativepos = new Point(0, 0);
+	}
+	
+	public void reset()
+	{
+		player = new Point2D.Double(Main.WIN_WIDTH / 2 - (PLAYER_SIZE / 2), 0);
+		prevplayer = new Point2D.Double(Main.WIN_WIDTH / 2 - (PLAYER_SIZE / 2), 0);
+		velocity = new Point2D.Double(0, 0);
+		obstacles = new int[GRIDS_X][GRIDS_Y];
+		toremove = new ArrayList<Point>();
+		Random rand = new Random();
+		if (rand.nextInt(2) == 0)
+			velocity.x = 5;
+		else
+			velocity.x = -5;
+		end = new Point(rand.nextInt(GRIDS_X - 10) + 5, rand.nextInt(GRIDS_Y - 10) + 5);
+		mousePos = new Point(0, 0);
+		obstacles[end.x][end.y] = 2; 
+		multiplayer = false;
+		connected = false;
 	}
 
-	private void addremove(int[][] obstacles, int x, int y)
+	private void addremove(ArrayList<Point> toremove, int x, int y)
 	{
 		if (x >= 0 && x < GRIDS_X && y >= 0 && y < GRIDS_Y && obstacles[x][y] == 0)
 		{
@@ -165,11 +201,40 @@ public class GameState extends MouseAdapter {
 		prevplayer.y = player.y;
 		
 		//check mouse position
-		addremove(obstacles, (int)(mousePos.x / constantx), (int)(mousePos.y / constanty));
+		addremove(toremove, (int)(mousePos.x / constantx), (int)(mousePos.y / constanty));
 	}
 
-	Point2D.Double getPlayer() {
+	public static Point2D.Double getPlayer() {
 		return player;
+	}
+	
+	public void initserver() throws IOException
+	{
+		ServerSocket serverSocket = new ServerSocket(Main.portnum);
+        Socket clientSocket = serverSocket.accept();
+        in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+        out = new PrintWriter(clientSocket.getOutputStream(), true);
+        pin = new PushbackInputStream(clientSocket.getInputStream());
+	}
+	
+	public void initclient() throws IOException
+	{
+		String hostnum = "";
+		hostnum = InetAddress.getLocalHost().getHostAddress().trim();
+		Socket serverSocket = new Socket(hostnum, Main.portnum);
+        in = new BufferedReader(new InputStreamReader(serverSocket.getInputStream()));
+        out = new PrintWriter(serverSocket.getOutputStream(), true);
+        pin = new PushbackInputStream(serverSocket.getInputStream());
+	}
+	
+	public void serverpoll()
+	{
+		
+	}
+	
+	public void clientpoll()
+	{
+		
 	}
 	
 	@Override
