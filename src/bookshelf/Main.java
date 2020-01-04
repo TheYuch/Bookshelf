@@ -1,6 +1,7 @@
 package bookshelf;
 
 import java.awt.Dimension;
+import java.io.IOException;
 
 import javax.swing.JFrame;
 
@@ -11,10 +12,11 @@ public class Main {
 	static final int WIN_HEIGHT = 600;
 	static final int FONT_SIZE = 50;
 	public static final int portnum = 1024;
+	public static int init = 0; //set by gamepanel to initserver/client. 0 = nothing, 1 = server, 2 = client
 	
 	public static boolean dead = false;
 
-	public static void main(String args[]) throws InterruptedException {
+	public static void main(String args[]) throws InterruptedException, IOException {
 		JFrame frame = new JFrame("Bookshelf");
 		frame.addMouseMotionListener(state);
 
@@ -35,19 +37,27 @@ public class Main {
 			
 			if (GamePanel.start)
 			{
-				if (GameState.ishost)
-					state.serverpoll();
-				else
-					state.clientpoll();
+				if (GameState.connected)
+					state.poll();
 				state.update();
 			}
-			if (GamePanel.startnum > 0) //GamePanel.startnum == 0 && GamePanel.startnum > 0
+			if (GamePanel.startnum > 0)
 			{
 				frame.repaint();
 				Thread.sleep(1000);
 				GamePanel.startnum -= 1;
 			}
 			frame.repaint();
+			
+			if (init > 0)
+			{
+				if (init == 1)
+					state.initserver();
+				else
+					state.initclient();
+				game.multiplayerstart();
+				init = 0;
+			}
 
 			long elapsedTime = System.currentTimeMillis() - startTime;
 

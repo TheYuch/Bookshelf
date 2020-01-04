@@ -6,7 +6,6 @@ import java.awt.Graphics;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.geom.Point2D;
-import java.io.IOException;
 
 import javax.swing.JButton;
 import javax.swing.JLabel;
@@ -121,11 +120,37 @@ public class GamePanel extends JPanel implements ActionListener {
 	@Override
 	public void paintComponent(Graphics g) {
 		
+		if (GameState.connected && System.currentTimeMillis() > GameState.multiplayertime)
+		{
+			reset();
+			if (GameState.score > GameState.oscore)
+				scorelabel.setText("You won! Score: " + GameState.score + " Opponent: " + GameState.oscore);
+			else if (GameState.score < GameState.oscore)
+				scorelabel.setText("Opponent won. Score: " + GameState.score + " Opponent: " + GameState.oscore);
+			else
+				scorelabel.setText("Tie! Score: " + GameState.score);
+		}
 		if (Main.dead) 
 		{ 
-			reset();
+			if (GameState.connected)
+			{
+				if (System.currentTimeMillis() <= GameState.multiplayertime)
+				{
+					Main.dead = false;
+					GameState.score -= 2;
+					Main.state.resetcharacter();
+				}
+			}
+			else
+				reset();
 		}
-		if (startnum != -1)
+		if (startnum > 0)
+		{
+			g.setColor(Color.ORANGE);
+			g.setFont(new Font("Serif", Font.PLAIN, 300));
+			g.drawString(Integer.toString(startnum), (Main.WIN_WIDTH / 2) - 75, Main.WIN_HEIGHT / 2 + 100);
+		}
+		if (startnum == 0)
 		{
 			/*
 			 * Draw the grid
@@ -157,8 +182,16 @@ public class GamePanel extends JPanel implements ActionListener {
 			}
 			
 			/*
-			 * Draw the player
+			 * Draw the player(s)
 			 */
+			
+			if (GameState.connected) 
+			{
+				Point2D.Double opponent = GameState.getOpponent();
+				g.setColor(Color.RED);
+				g.fillOval((int)opponent.x, (int)opponent.y, GameState.PLAYER_SIZE, GameState.PLAYER_SIZE);
+			}
+			
 			g.setColor(Color.BLUE);
 			Point2D.Double player = GameState.getPlayer();
 			g.fillOval((int)player.x, (int)player.y, GameState.PLAYER_SIZE, GameState.PLAYER_SIZE);
@@ -175,26 +208,21 @@ public class GamePanel extends JPanel implements ActionListener {
 			{
 				opponentscore.setText("Opponent: " + GameState.oscore);
 			}
-			
-			//draw startnum if existing
-			if (startnum != 0)
-			{
-				g.setColor(Color.ORANGE);
-				g.setFont(new Font("Serif", Font.PLAIN, 300));
-				g.drawString(Integer.toString(startnum), (Main.WIN_WIDTH / 2) - 75, Main.WIN_HEIGHT / 2 + 100);
-			}
 		}
 	}
 	
 	private void start()
 	{
 		GameState.score = 0;
+		scorelabel.setText("0");
 		start = true;
 		singlebutton.setVisible(false);
 		multibutton.setVisible(false);
 		title.setVisible(false);
 		startnum = 3;
 		scorelabel.setLocation(0, 0); //will be in middle b/c of alignment
+		hostbutton.setVisible(false);
+		clientbutton.setVisible(false);
 	}
 	
 	public void multiplayerstart()
@@ -205,12 +233,13 @@ public class GamePanel extends JPanel implements ActionListener {
 		startnum = 3;
 		title.setVisible(false);
 		start = true;
-		scorelabel.setLocation(-(Main.WIN_WIDTH / 2), 0); //will be in middle b/c of alignment
+		scorelabel.setLocation(-(Main.WIN_WIDTH / 2) + 75, 0); //will be in middle b/c of alignment
 		opponentscore.setVisible(true);
 	}
 	
 	@Override
-	public void actionPerformed(ActionEvent e) {
+	public void actionPerformed(ActionEvent e) { //only abuse main, not AWT thread. no thread.sleep
+		//or calling initserver/poll.
 		if (e.getSource() == singlebutton)
 		{
 			start();
@@ -229,24 +258,15 @@ public class GamePanel extends JPanel implements ActionListener {
 		{
 			hostbutton.setVisible(false);
 			clientbutton.setVisible(false);
+			title.setVisible(false);
 			waitingforclient.setVisible(true);
-			GameState.ishost = true;
-			try {
-				Main.state.initserver();
-			} catch (IOException e1) {
-				e1.printStackTrace();
-			}
+			Main.init = 1;
 		}
 		else if (e.getSource() == clientbutton)
 		{
 			hostbutton.setVisible(false);
 			clientbutton.setVisible(false);
-			GameState.ishost = false;
-			try {
-				Main.state.initclient();
-			} catch (Exception e1) {
-				e1.printStackTrace();
-			}
+			Main.init = 2;
 		}
 	}
 }

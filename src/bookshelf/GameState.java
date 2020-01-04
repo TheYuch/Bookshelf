@@ -24,6 +24,7 @@ public class GameState extends MouseAdapter {
 	static final int GRIDS_Y = 12;
 	static final int GRID_THICKNESS = 2;
 	static final int PLAYER_SIZE = Main.WIN_WIDTH / GRIDS_X - 10;
+	static final int MULTIPLAYERGAMETIME = 20000; //20 seconds
 	
 	public static int score = 0;
 	public static int oscore = 0; //opponent's score
@@ -39,7 +40,7 @@ public class GameState extends MouseAdapter {
 	private ArrayList<Point> toremove;
 	
 	private static Point2D.Double opponent;
-	
+	private ArrayList<Point> otoremove;
 	
 	private boolean collidedx = false;
 	private boolean collidedy = false;
@@ -56,9 +57,13 @@ public class GameState extends MouseAdapter {
 	public static boolean multiplayer = false;
 	public static boolean connected = false;
 	public static boolean ishost;
+	public static long multiplayertime;
 	private PrintWriter out;
 	private BufferedReader in;
 	private PushbackInputStream pin;
+	
+	private Socket server;
+	private ServerSocket serverSocket;
 
 	public GameState() {
 		player = new Point2D.Double(Main.WIN_WIDTH / 2 - (PLAYER_SIZE / 2), 0);
@@ -76,10 +81,25 @@ public class GameState extends MouseAdapter {
 		end = new Point(rand.nextInt(GRIDS_X - 10) + 5, rand.nextInt(GRIDS_Y - 10) + 5);
 		mousePos = new Point(0, 0);
 		obstacles[end.x][end.y] = 2; 
+		
+		opponent = new Point2D.Double();
+		otoremove = new ArrayList<Point>();
 	}
 	
 	public void reset()
 	{
+		if (connected)
+		{
+			try {
+				if (ishost)
+					serverSocket.close();
+				else
+					server.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+		
 		player = new Point2D.Double(Main.WIN_WIDTH / 2 - (PLAYER_SIZE / 2), 0);
 		prevplayer = new Point2D.Double(Main.WIN_WIDTH / 2 - (PLAYER_SIZE / 2), 0);
 		velocity = new Point2D.Double(0, 0);
@@ -95,17 +115,19 @@ public class GameState extends MouseAdapter {
 		obstacles[end.x][end.y] = 2; 
 		multiplayer = false;
 		connected = false;
+		
+		otoremove.clear();
 	}
 
-	private void addremove(ArrayList<Point> toremove, int x, int y)
+	private void addremove(ArrayList<Point> removelist, int x, int y)
 	{
 		if (x >= 0 && x < GRIDS_X && y >= 0 && y < GRIDS_Y && obstacles[x][y] == 0)
 		{
-			toremove.add(new Point(x, y));
-			if (toremove.size() > BLOCKS_ALLOWED)
+			removelist.add(new Point(x, y));
+			if (removelist.size() > BLOCKS_ALLOWED)
 			{
-				obstacles[toremove.get(0).x][toremove.get(0).y] = 0;
-				toremove.remove(0); //always removing the first element
+				obstacles[removelist.get(0).x][removelist.get(0).y] = 0;
+				removelist.remove(0); //always removing the first element
 			}
 			obstacles[x][y] = 1;
 		}
@@ -123,6 +145,9 @@ public class GameState extends MouseAdapter {
 			Main.dead = true;
 			return;
 		}
+		//to rid some bugs
+		obstacles[end.x][end.y] = 2;
+		
 		//collision detection
 		grounded = false;
 		collidedx = false;
@@ -202,39 +227,90 @@ public class GameState extends MouseAdapter {
 		
 		//check mouse position
 		addremove(toremove, (int)(mousePos.x / constantx), (int)(mousePos.y / constanty));
+		if (connected)
+			write(true);
 	}
 
 	public static Point2D.Double getPlayer() {
 		return player;
 	}
+
+	public static Point2D.Double getOpponent() {
+		return opponent;
+	}
+	
+	private void write(boolean added)
+	{
+		if (added)
+		{
+			Point tmp = toremove.get(toremove.size() - 1);
+			out.println(score + " " + player.x + " " + player.y + " " + tmp.x + " " + tmp.y);
+		}
+		else
+			out.println(score + " " + player.x + " " + player.y + " -1");
+	}
+	
+	private void read()
+	{
+		try {
+			String[] inp = in.readLine().split(" ");
+			oscore = Integer.parseInt(inp[0]);
+			opponent.x = Double.parseDouble(inp[1]);
+			opponent.y = Double.parseDouble(inp[2]);
+			if (Integer.parseInt(inp[3]) != -1)
+			{
+				addremove(otoremove, Integer.parseInt(inp[3]), Integer.parseInt(inp[4]));
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
 	
 	public void initserver() throws IOException
 	{
-		ServerSocket serverSocket = new ServerSocket(Main.portnum);
-        Socket clientSocket = serverSocket.accept();
+		ishost = true;
+		serverSocket = new ServerSocket(Main.portnum); //put as class private variable
+        Socket clientSocket = serverSocket.accept();//and then close when reset. 20398403984093840983
+        connected = true;
         in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
         out = new PrintWriter(clientSocket.getOutputStream(), true);
         pin = new PushbackInputStream(clientSocket.getInputStream());
+        multiplayertime = System.currentTimeMillis() + MULTIPLAYERGAMETIME;
+        write(false);
 	}
 	
 	public void initclient() throws IOException
 	{
-		String hostnum = "";
-		hostnum = InetAddress.getLocalHost().getHostAddress().trim();
-		Socket serverSocket = new Socket(hostnum, Main.portnum);
-        in = new BufferedReader(new InputStreamReader(serverSocket.getInputStream()));
-        out = new PrintWriter(serverSocket.getOutputStream(), true);
-        pin = new PushbackInputStream(serverSocket.getInputStream());
+		ishost = false;
+		String hostnum = InetAddress.getLocalHost().getHostAddress().trim();
+		hostnum = "24.6.217.117";
+		server = new Socket(hostnum, Main.portnum);
+        in = new BufferedReader(new InputStreamReader(server.getInputStream()));
+        out = new PrintWriter(server.getOutputStream(), true);
+        pin = new PushbackInputStream(server.getInputStream());
+        connected = true;
+        multiplayertime = System.currentTimeMillis() + MULTIPLAYERGAMETIME;
+        write(false);
 	}
 	
-	public void serverpoll()
-	{
-		
-	}
+	/*
+	 * Note for polling: (CHECK IF PIN.AVAILABLE() AND SET CONNECTED = TRUE
+	 * Will send the following in the following order: (each thing separated by space)
+	 * 1. int - the score of the sender.
+	 * 2. sender's position, x and y separated by space.
+	 * 3. opponent's new block added. if -1, no change.
+	 */
 	
-	public void clientpoll()
+	public void poll()
 	{
-		
+		try {
+			if (pin.available() != 0)
+			{
+				read();
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 	
 	@Override
@@ -242,5 +318,19 @@ public class GameState extends MouseAdapter {
 	{
 		mousePos.x = e.getX() - 6;
 		mousePos.y = e.getY() - 29;
+	}
+	
+	public void resetcharacter()
+	{
+		player.x = Main.WIN_WIDTH / 2 - (PLAYER_SIZE / 2);
+		player.y = 0;
+		prevplayer.x = Main.WIN_WIDTH / 2 - (PLAYER_SIZE / 2);
+		prevplayer.y = 0;
+		velocity.y = 0;
+		Random rand = new Random();
+		if (rand.nextInt(2) == 0)
+			velocity.x = 5;
+		else
+			velocity.x = -5;
 	}
 }
