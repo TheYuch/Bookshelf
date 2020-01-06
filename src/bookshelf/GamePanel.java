@@ -10,6 +10,7 @@ import java.awt.geom.Point2D;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 
 public class GamePanel extends JPanel implements ActionListener {
@@ -22,6 +23,8 @@ public class GamePanel extends JPanel implements ActionListener {
 	private JLabel scorelabel;
 	private JLabel opponentscore;
 	private JLabel waitingforclient;
+	private JLabel typeip;
+	private JTextField ipinput;
 	
 	public static boolean start = false; //start of game
 	
@@ -100,6 +103,25 @@ public class GamePanel extends JPanel implements ActionListener {
     	waitingforclient.setVerticalAlignment(SwingConstants.CENTER);
     	waitingforclient.setVisible(false);
     	this.add(waitingforclient);
+    	
+    	typeip = new JLabel("Type in IP of host below:");
+    	typeip.setFont(new Font("Berlin Sans FB", Font.PLAIN, 50));
+    	typeip.setForeground(Color.BLUE);
+    	typeip.setBounds(0, Main.WIN_HEIGHT / 2 - 90, Main.WIN_WIDTH, 60);
+    	typeip.setHorizontalAlignment(SwingConstants.CENTER);
+    	typeip.setVerticalAlignment(SwingConstants.CENTER);
+    	typeip.setVisible(false);
+    	this.add(typeip);
+    	
+    	ipinput = new JTextField();
+    	ipinput.setFont(new Font("Calibri", Font.PLAIN, 50));
+    	ipinput.setForeground(Color.BLACK);
+    	ipinput.setBackground(Color.WHITE);
+    	ipinput.setBounds(Main.WIN_WIDTH / 2 - 175, Main.WIN_HEIGHT / 2 - 35, 350, 70);
+    	ipinput.addActionListener(this);
+    	ipinput.setEditable(true);
+    	ipinput.setVisible(false);
+    	this.add(ipinput);
 	}
 	
 	private void reset()
@@ -137,7 +159,7 @@ public class GamePanel extends JPanel implements ActionListener {
 				if (System.currentTimeMillis() <= GameState.multiplayertime)
 				{
 					Main.dead = false;
-					GameState.score -= 2;
+					GameState.score --;
 					Main.state.resetcharacter();
 				}
 			}
@@ -261,12 +283,25 @@ public class GamePanel extends JPanel implements ActionListener {
 			title.setVisible(false);
 			waitingforclient.setVisible(true);
 			Main.init = 1;
+			GameState.score = 0;
+			GameState.oscore = 0;
 		}
 		else if (e.getSource() == clientbutton)
 		{
 			hostbutton.setVisible(false);
 			clientbutton.setVisible(false);
+			ipinput.setVisible(true);
+			typeip.setVisible(true);
+		}
+		String text = ipinput.getText().trim();
+		if (text.length() > 1)
+		{
+			ipinput.setVisible(false);
+			typeip.setVisible(false);
+			Main.state.hostnum = text;
 			Main.init = 2;
+			GameState.score = 0;
+			GameState.oscore = 0;
 		}
 	}
 }

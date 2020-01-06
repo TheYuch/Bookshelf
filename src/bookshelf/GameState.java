@@ -64,6 +64,7 @@ public class GameState extends MouseAdapter {
 	
 	private Socket server;
 	private ServerSocket serverSocket;
+	public String hostnum;
 
 	public GameState() {
 		player = new Point2D.Double(Main.WIN_WIDTH / 2 - (PLAYER_SIZE / 2), 0);
@@ -243,7 +244,15 @@ public class GameState extends MouseAdapter {
 	{
 		if (added)
 		{
-			Point tmp = toremove.get(toremove.size() - 1);
+			Point tmp;
+			try
+			{
+				tmp = toremove.get(toremove.size() - 1);
+			}
+			catch (Exception e)
+			{
+				tmp = toremove.get(toremove.size() - 1); //just in case toremove was changed at this moment by another thread.
+			}
 			out.println(score + " " + player.x + " " + player.y + " " + tmp.x + " " + tmp.y);
 		}
 		else
@@ -282,8 +291,7 @@ public class GameState extends MouseAdapter {
 	public void initclient() throws IOException
 	{
 		ishost = false;
-		String hostnum = InetAddress.getLocalHost().getHostAddress().trim();
-		hostnum = "24.6.217.117";
+		//hostnum = "192.168.1.9"; //"192.168.1.1";
 		server = new Socket(hostnum, Main.portnum);
         in = new BufferedReader(new InputStreamReader(server.getInputStream()));
         out = new PrintWriter(server.getOutputStream(), true);
